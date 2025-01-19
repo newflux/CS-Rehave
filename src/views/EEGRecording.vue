@@ -15,31 +15,54 @@
           <button
             class="button-primary"
             @click="startRecording"
-            :disabled="isRecording || isTimerRunning || isLoading"
+            :disabled="isRecording || isTimerRunning"
           >
-            <span v-if="isLoading">Saving...</span>
-            <span v-else>Start Recording</span>
+            Start Recording
           </button>
           <button
             class="button-secondary"
             @click="stopRecording"
-            :disabled="!isRecording || isLoading"
+            :disabled="!isRecording"
           >
             Stop Recording
           </button>
+          <button
+            class="button-report"
+            @click="generateReport"
+            :disabled="!isRecordingStopped"
+          >
+            Generate Report
+          </button>
         </div>
         <p v-if="isRecording" class="recording-status">
-         Time remaining: {{ formattedTime }}
+          Time remaining: {{ formattedTime }}
         </p>
         <p v-else class="recording-status">Recording stopped.</p>
       </div>
+  
+      <!-- Report Pop-Up -->
+      <transition name="slide-up">
+        <div v-if="report" class="report-popup">
+          <div class="report-content">
+            <div class="report-percentage" :style="{ color: report.color }">
+              {{ report.cognitiveCapacity }}%
+            </div>
+            <div class="report-details">
+              <p>Alpha Waves: {{ report.alphaAvg }}</p>
+              <p>Beta Waves: {{ report.betaAvg }}</p>
+              <p>Gamma Waves: {{ report.gammaAvg }}</p>
+            </div>
+          </div>
+          <button class="button-close" @click="report = null">Close</button>
+        </div>
+      </transition>
     </div>
   </template>
   
   <script>
   import { ref, computed } from 'vue';
   import VueApexCharts from 'vue3-apexcharts';
-  import { auth, db, collection, addDoc } from '../firebase'; // Import Firebase methods
+  import { db, collection, addDoc, query, where, getDocs, deleteDoc } from '../firebase'; // Import Firestore methods
   
   export default {
     components: {
@@ -48,11 +71,11 @@
     setup() {
       const isRecording = ref(false);
       const isTimerRunning = ref(false);
-      const isLoading = ref(false); // Loading state
+      const isRecordingStopped = ref(false); // New state for report button
       const dataInterval = ref(null);
       const timerInterval = ref(null);
       const timeRemaining = ref(300); // 5 minutes in seconds
-      const user = ref(auth.currentUser); // Get current user
+      const report = ref(null); // Store report data
   
       const series = ref([
         { name: 'Alpha Waves', data: [] },
@@ -129,6 +152,8 @@
   
         isRecording.value = true;
         isTimerRunning.value = true;
+        isRecordingStopped.value = false; // Reset report state
+        report.value = null; // Clear previous report
         series.value = [
           { name: 'Alpha Waves', data: [] },
           { name: 'Beta Waves', data: [] },
@@ -161,29 +186,11 @@
         }, 100);
       };
   
-      // Generate a report from EEG data
-      const generateReport = (data) => {
-        const alphaAvg = data.alphaWaves.reduce((sum, val) => sum + val, 0) / data.alphaWaves.length;
-        const betaAvg = data.betaWaves.reduce((sum, val) => sum + val, 0) / data.betaWaves.length;
-        const gammaAvg = data.gammaWaves.reduce((sum, val) => sum + val, 0) / data.gammaWaves.length;
-  
-        return {
-          alphaAvg: alphaAvg.toFixed(2),
-          betaAvg: betaAvg.toFixed(2),
-          gammaAvg: gammaAvg.toFixed(2),
-        };
-      };
-  
-      // Stop recording
-      const stopRecording = () => {
-        if (!user.value) {
-          console.error('User not authenticated');
-          return;
-        }
-  
-        // Immediately stop the intervals and reset state
+      // Stop recording and save data to Firestore
+      const stopRecording = async () => {
         isRecording.value = false;
         isTimerRunning.value = false;
+        isRecordingStopped.value = true; // Enable report button
         clearInterval(dataInterval.value);
         clearInterval(timerInterval.value);
   
@@ -193,33 +200,76 @@
           betaWaves: series.value[1].data.map((point) => point.y),
           gammaWaves: series.value[2].data.map((point) => point.y),
           timestamp: new Date().toISOString(),
-          userId: user.value.uid, // Include user ID
         };
   
-        // Generate and display report
-        const report = generateReport(recordingData);
-        console.log('Report:', report);
-        alert(`Report:\nAlpha: ${report.alphaAvg}\nBeta: ${report.betaAvg}\nGamma: ${report.gammaAvg}`);
+        console.log('Prepared data:', recordingData); // Log the data
   
-        // Save data to Firestore (async)
-        saveRecordingToFirestore(recordingData);
-  
-        timeRemaining.value = 300; // Reset timer
-      };
-  
-      // Save recording data to Firestore
-      const saveRecordingToFirestore = async (recordingData) => {
-        isLoading.value = true; // Start loading
+        // Save data to Firestore
         try {
           const docRef = await addDoc(collection(db, 'eegRecordings'), recordingData);
           console.log('Recording saved with ID:', docRef.id);
-          alert('Recording saved successfully!');
         } catch (error) {
           console.error('Error saving recording:', error);
-          alert('Error saving recording. Please try again.');
-        } finally {
-          isLoading.value = false; // Stop loading
         }
+  
+        timeRemaining.value = 300; // Reset timer
+  
+        // Delete old data
+        deleteOldData();
+      };
+  
+      // Calculate cognitive capacity percentage
+      const calculateCognitiveCapacity = (alphaAvg, betaAvg, gammaAvg) => {
+        // Formula: Cognitive capacity = (alpha + beta + gamma) / 3
+        const capacity = (alphaAvg + betaAvg + gammaAvg) / 3;
+        return Math.min(100, Math.max(0, Math.round(capacity))); // Clamp between 0 and 100
+      };
+  
+      // Generate a report from EEG data
+      const generateReport = () => {
+        const alphaAvg = parseFloat(
+          (series.value[0].data.reduce((sum, point) => sum + point.y, 0) / series.value[0].data.length).toFixed(2)
+        );
+        const betaAvg = parseFloat(
+          (series.value[1].data.reduce((sum, point) => sum + point.y, 0) / series.value[1].data.length).toFixed(2)
+        );
+        const gammaAvg = parseFloat(
+          (series.value[2].data.reduce((sum, point) => sum + point.y, 0) / series.value[2].data.length).toFixed(2)
+        );
+  
+        const cognitiveCapacity = calculateCognitiveCapacity(alphaAvg, betaAvg, gammaAvg);
+  
+        // Determine color based on cognitive capacity
+        let color;
+        if (cognitiveCapacity < 40) {
+          color = '#FF6B6B'; // Red
+        } else if (cognitiveCapacity < 70) {
+          color = '#F6E05E'; // Yellow
+        } else {
+          color = '#4FD1C5'; // Green
+        }
+  
+        report.value = {
+          alphaAvg,
+          betaAvg,
+          gammaAvg,
+          cognitiveCapacity,
+          color,
+        };
+      };
+  
+      // Delete old data (older than 7 days)
+      const deleteOldData = async () => {
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - 1); // 1 days ago
+  
+        const q = query(collection(db, 'eegRecordings'), where('timestamp', '<', cutoffDate.toISOString()));
+        const querySnapshot = await getDocs(q);
+  
+        querySnapshot.forEach(async (doc) => {
+          await deleteDoc(doc.ref);
+          console.log('Deleted old recording:', doc.id);
+        });
       };
   
       // Format time remaining (mm:ss)
@@ -232,12 +282,14 @@
       return {
         isRecording,
         isTimerRunning,
-        isLoading,
+        isRecordingStopped,
         series,
         chartOptions,
         startRecording,
         stopRecording,
+        generateReport,
         formattedTime,
+        report,
       };
     },
   };
@@ -278,7 +330,8 @@
   }
   
   .button-primary,
-  .button-secondary {
+  .button-secondary,
+  .button-report {
     padding: 0.75rem 1.5rem;
     font-size: 1rem;
     border-radius: 9999px;
@@ -309,6 +362,16 @@
     cursor: not-allowed;
   }
   
+  .button-report {
+    background-color: #F6E05E;
+    color: #1D1D1D;
+  }
+  
+  .button-report:disabled {
+    background-color: #D69E2E;
+    cursor: not-allowed;
+  }
+  
   .button-primary:hover:not(:disabled) {
     background-color: #38B2AC;
     transform: translateY(-2px);
@@ -320,10 +383,80 @@
     transform: translateY(-2px);
   }
   
+  .button-report:hover:not(:disabled) {
+    background-color: #D69E2E;
+    transform: translateY(-2px);
+  }
+
+  .report-popup {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #1a1a1a;
+  padding: 2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 1000;
+}
+  
   .recording-status {
     margin-top: 1rem;
     font-size: 1.2rem;
     color: rgba(255, 255, 255, 0.9);
     font-family: 'Space Mono', monospace;
   }
+  
+  .report-section {
+    margin-top: 2rem;
+    padding: 1rem;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+  
+  .report-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+  
+.report-percentage {
+  font-size: 3rem;
+  font-weight: bold;
+  margin-right: 2rem;
+}
+  
+.report-details {
+  text-align: left;
+}
+  
+.report-details p {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 0.5rem;
+}
+
+.button-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  color: #FF6B6B;
+  cursor: pointer;
+  font-size: 1rem;
+}
+  
+  /* Slide-up animation */
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.5s ease;
+}
+  
+.slide-up-enter-from,
+.slide-up-leave-to {
+  transform: translateY(100%);
+}
   </style>
