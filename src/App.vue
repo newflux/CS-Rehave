@@ -66,7 +66,7 @@ export default {
   computed: {
     showHeaderAndFooter() {
       // Hide header and footer for specific routes
-      const hideRoutes = ['/login', '/signup']; // Add more routes if needed
+      const hideRoutes = ['/login', '/signup', '/eeg', '/eeg-recording']; // Add '/eeg' to hide header and footer
       return !hideRoutes.includes(this.$route.path);
     },
   },
