@@ -52,6 +52,10 @@ Rehave is a digital rehabilitation platform designed to enhance cognitive perfor
 2. **Baseline Calculatio**n: The system analyzes alpha, beta, and gamma waves.
 3. ** Music Recommendation**: Tracks are selected based on dominant brainwave activity.
 4. **Session Report**: A summary visualizes cognitive improvement post-session.
+   ![WhatsApp Image 2025-02-10 at 01 27 02](https://github.com/user-attachments/assets/f67018ee-e96b-48fb-81f7-9aa61ea218ed)
+
+
+
 
 
 ------------
