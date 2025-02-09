@@ -8,24 +8,24 @@ Rehave is a digital rehabilitation platform designed to enhance cognitive perfor
 ------------
 
 ## **Features**
-1. **Real-Time EEG Recording**
+### 1. Real-Time EEG Recording
   - Visualizes alpha, beta, and gamma brainwave activity in real time.
     ![Screenshot 2025-02-09 233306](https://github.com/user-attachments/assets/eb87566b-7987-44a8-ad23-35914fdce9f3)
 
 
-2. **Music for Cognitive Optimization**
+### 2. Music for Cognitive Optimization
   - Recommends music dynamically based on dominant brainwave activity.
     ![Screenshot 2025-02-05 134030](https://github.com/user-attachments/assets/c01f24a8-6d28-4954-828a-2158474c4056)
 
-3. **Session Reports**
+### 3. Session Reports
   - Provides detailed reports comparing baseline and improved brainwave activity.
     ![Screenshot 2025-02-05 134125](https://github.com/user-attachments/assets/0771055d-b3db-4185-98eb-83ea04b9f2fc)
 
 
-4. **User-Friendly Interface**
+### 4. User-Friendly Interface
  - Includes simple controls for recording EEG data, selecting music, and generating reports.
 
-5. **Firebase Integration**
+### 5. Firebase Integration
  - Stores and retrieves EEG recording data using Firebase Firestore.
  - Automatically manages storage by deleting old recordings.
     ![Screenshot 2025-02-09 233527](https://github.com/user-attachments/assets/a5e24aec-ecf2-4bfc-8410-82986661b212)
