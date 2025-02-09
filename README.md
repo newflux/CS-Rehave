@@ -33,14 +33,14 @@ Rehave is a digital rehabilitation platform designed to enhance cognitive perfor
 
 ------------
 ## Technologies Used
-##### 1. Frontend
+### 1. Frontend
 - Vue.js with Vue Router and Vuex for state management
 - ApexCharts for EEG data visualization
 - WaveSurfer.js for audio waveform display
-##### Backend
+### Backend
 - Firebase Firestore for data storage
 - Firebase Authentication for user login
-##### APIs and Styling
+### APIs and Styling
 - Audius API for fetching and playing music tracks
 - SCSS for modular and maintainable styling
 
@@ -57,21 +57,21 @@ Rehave is a digital rehabilitation platform designed to enhance cognitive perfor
 ------------
 
 ## Installation
-##### Clone the Repository
+#### Clone the Repository
 `git clone https://github.com/your-username/rehave.git`
 
 `cd rehave`
 
 `npm install`
 
-##### Firebase Setup
+#### Firebase Setup
 1. Create a Firebase project and configure src/firebase.js.
 2. Enable Firestore and Authentication in the Firebase Console.
 
-##### Audius API Setup
+#### Audius API Setup
 Replace `YOUR_AUDIUS_API_KEY` in MusicView.vue with your` actual API key.`
 
-##### Run the Project
+#### Run the Project
 
 `npm run serve`
 
